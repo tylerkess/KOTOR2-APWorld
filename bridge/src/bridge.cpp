@@ -4,18 +4,42 @@
 // - Runs the ap_tick script about once a second during gameplay (player-control frame hook, game thread).
 // - Serves the named pipe \\.\pipe\K2APBridge for the Python client (protocol: bridge/PROTOCOL.md).
 // All game logic lives in NWScript (nss/) and Python; this file only moves strings.
+// Windows 7 API level (GetTickCount64, SRW locks). MinGW defaults to XP otherwise.
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
 #include <windows.h>
 
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <deque>
-#include <mutex>
 #include <string>
 
 #include "engine.h"
 
 namespace k2ap {
+
+// A Windows SRW lock (the C++ standard mutex is missing from MinGW's default "win32" thread model).
+class Mutex {
+public:
+    void lock() { AcquireSRWLockExclusive(&lock_); }
+    void unlock() { ReleaseSRWLockExclusive(&lock_); }
+
+private:
+    SRWLOCK lock_ = SRWLOCK_INIT;
+};
+
+class Guard {
+public:
+    explicit Guard(Mutex& m) : m_(m) { m_.lock(); }
+    ~Guard() { m_.unlock(); }
+    Guard(const Guard&) = delete;
+    Guard& operator=(const Guard&) = delete;
+
+private:
+    Mutex& m_;
+};
 
 constexpr int kProtocol = 1;
 constexpr DWORD kTickMs = 1000;
@@ -25,11 +49,11 @@ constexpr char kVersion[] = "0.0.1";
 
 // ---------------------------------------------------------------------------------------------------------------
 // log: %LOCALAPPDATA%\K2APBridge\bridge.log
-std::mutex g_logLock;
+Mutex g_logLock;
 char g_logPath[MAX_PATH] = {0};
 
 void Log(const char* fmt, ...) {
-    std::lock_guard<std::mutex> lock(g_logLock);
+    Guard lock(g_logLock);
     if (!g_logPath[0]) {
         char base[MAX_PATH];
         DWORD n = GetEnvironmentVariableA("LOCALAPPDATA", base, MAX_PATH);
@@ -55,7 +79,7 @@ void Log(const char* fmt, ...) {
 
 // ---------------------------------------------------------------------------------------------------------------
 // queues shared by the game thread and the pipe thread
-std::mutex g_lock;
+Mutex g_lock;
 std::deque<std::string> g_toGame;    // commands from the client, taken by APB_Recv
 std::deque<std::string> g_toClient;  // events from APB_Send other than snapshots
 std::string g_snapshot;              // latest "S ..." line from ap_tick
@@ -144,7 +168,7 @@ int RunRoutine(int id) {
         case engine::kRoutineRecv: {
             std::string command;
             {
-                std::lock_guard<std::mutex> lock(g_lock);
+                Guard lock(g_lock);
                 if (!g_toGame.empty()) {
                     command = g_toGame.front();
                     g_toGame.pop_front();
@@ -155,7 +179,7 @@ int RunRoutine(int id) {
         case engine::kRoutineSend: {
             std::string event;
             if (!PopString(vm, &event)) return engine::kErrParam;
-            std::lock_guard<std::mutex> lock(g_lock);
+            Guard lock(g_lock);
             if (event.size() > 1 && event[0] == 'S' && event[1] == ' ') {
                 g_snapshot = event;
             } else if (!event.empty()) {
@@ -174,7 +198,7 @@ int __fastcall HookExecuteCommand(void* self, void* edx, int id, int nParams) {
     if (id == engine::kRoutineEndGame) {
         // The ending script sets GBL_GAME_COMPLETE and calls EndGame in one run: no save or tick follows, so the
         // client hears about it from here ("E"; it checks the last snapshot's module).
-        std::lock_guard<std::mutex> lock(g_lock);
+        Guard lock(g_lock);
         g_toClient.push_back("E");
         Log("EndGame called (last snapshot: %.40s)", g_snapshot.c_str());
     }
@@ -259,7 +283,7 @@ std::string Handle(const std::string& req) {
     if (verb == "PING") return "OK pong";
     if (verb == "HELLO") return "OK " + std::to_string(kProtocol) + " K2";
     if (verb == "VER") return std::string("OK ") + kVersion;
-    std::lock_guard<std::mutex> lock(g_lock);
+    Guard lock(g_lock);
     if (verb == "STATUS") {
         const ULONGLONG age = g_lastTick ? GetTickCount64() - g_lastTick : 0;
         return "OK " + std::to_string(g_hooked) + " " + std::to_string(g_ticks) + " " + std::to_string(age) + " " +
