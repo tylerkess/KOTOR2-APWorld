@@ -70,3 +70,9 @@ python3 tools/build_apworld.py                                   # build/kotor2.
 
 Addresses in `bridge/src/engine.h` come from K2SE's published research and KotOR Patch Manager's address database,
 re-checked against the target executable; no code from either is used.
+
+## License
+
+MIT, see [LICENSE](LICENSE). This is an unofficial fan project, not affiliated with or endorsed by Lucasfilm, Disney,
+Obsidian or Aspyr, and it contains no game assets: you need your own copy of the game. Game-derived files (patched
+scripts, the merged `globalcat.2da`) are generated on your machine from your own installation.
