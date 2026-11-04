@@ -1,0 +1,9 @@
+.venv/
+.tools/
+__pycache__/
+build/
+bridge/build/
+research/*/
+nss/ap_generated.nss
+*.apworld
+logs/
