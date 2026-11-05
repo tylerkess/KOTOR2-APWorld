@@ -3,6 +3,42 @@
 #include "ap_util"
 #include "ap_generated"
 
+// Gear: "<prefix> <size> <skip> <rare %> <jackpot %>" (protocol.GEAR_GROUPS). The tier follows the game's own loot
+// (k_plc_it_*): earned level -5..+2, clamped to 1..30. A rare roll lands 0..+12 above the level instead; a jackpot
+// anywhere from level +3 to 30. Families shorter than 30 cover the same range in bigger steps.
+void AP_GiveGear(string s, object oPC) {
+    string sPrefix = AP_Head(s);
+    s = AP_Rest(s);
+    int nSize = StringToInt(AP_Head(s));
+    s = AP_Rest(s);
+    int nSkip = StringToInt(AP_Head(s));
+    s = AP_Rest(s);
+    int nRare = StringToInt(AP_Head(s));
+    int nJackpot = StringToInt(AP_Rest(s));
+    int nLevel = AP_Level(oPC);
+    int nTier = nLevel + Random(8) - 5;
+    int nRoll = Random(100);
+    if (nRoll < nJackpot) {
+        int nLow = nLevel + 3;
+        if (nLow > 30) nLow = 30;
+        nTier = nLow + Random(31 - nLow);
+    } else if (nRoll < nJackpot + nRare) {
+        nTier = nTier + 5 + Random(6);
+    }
+    if (nTier < 1) nTier = 1;
+    if (nTier > 30) nTier = 30;
+    int n = (nTier * nSize + 29) / 30;
+    if (n < 1) n = 1;
+    if (n > nSize) n = nSize;
+    if (n == nSkip) {
+        if (n < nSize) n = n + 1;
+        else n = n - 1;
+    }
+    string sNumber = IntToString(n);
+    if (n < 10) sNumber = "0" + sNumber;
+    CreateItemOnObject(sPrefix + sNumber, oPC, 1);
+}
+
 void AP_Deliver(string sArgs, object oPC) {
     int nIndex = StringToInt(AP_Head(sArgs));
     string sOp = AP_Rest(sArgs);
@@ -22,6 +58,8 @@ void AP_Deliver(string sArgs, object oPC) {
         // Not retried on an invalid result: an item that merges into a stack the player already has comes back
         // invalid although it was given (seen in game 2026-11-05: Chemicals delivered every 5 s).
         CreateItemOnObject(AP_Head(sRest), oPC, StringToInt(AP_Rest(sRest)));
+    } else if (sKind == "R2") {
+        AP_GiveGear(sRest, oPC);
     } else if (sKind == "M") {
         SetGlobalNumber("AP_MITEMS", GetGlobalNumber("AP_MITEMS") | (1 << StringToInt(sRest)));
     } else if (sKind == "P") {

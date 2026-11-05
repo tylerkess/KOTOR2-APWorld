@@ -84,11 +84,21 @@ ITEMS: dict[str, ItemData] = {
     "Experience": ItemData(0x45, ItemClassification.filler, count=0),
     "Computer Spikes": ItemData(0x46, ItemClassification.filler, count=0),
     "Security Spikes": ItemData(0x47, ItemClassification.filler, count=0),
+    # gear (protocol.GEAR_GROUPS): the tier follows the player's level when it arrives
+    **{name: ItemData(0x48 + i, ItemClassification.filler, count=0, groups=frozenset({"Gear"}))
+       for i, name in enumerate(("Weapon", "Armor", "Equipment", "Upgrade", "Lightsaber Part", "Droid Gear"))},
+    "Lightsaber": ItemData(0x4E, ItemClassification.useful, count=0, groups=frozenset({"Gear"})),
+    # Retired 2026-11-05 (now part of "Lightsaber Part"); kept so seeds made before still deliver it.
     "Lightsaber Crystal": ItemData(0x50, ItemClassification.useful, count=0, groups=frozenset({"Gear"})),
 }
-FILLER = ("Credits", "Medpacs", "Stimulants", "Components", "Chemicals", "Experience", "Computer Spikes",
-          "Security Spikes")
-FILLER_WEIGHTS = (4, 3, 2, 3, 3, 3, 1, 1)
+# Filler draw, in percent: 30 consumables, 15 credits, 15 experience, 40 gear.
+FILLER_TABLE = {
+    "Credits": 15, "Experience": 15,
+    "Medpacs": 7, "Stimulants": 5, "Components": 6, "Chemicals": 6, "Computer Spikes": 3, "Security Spikes": 3,
+    "Weapon": 9, "Armor": 8, "Equipment": 9, "Upgrade": 7, "Lightsaber Part": 3, "Droid Gear": 2, "Lightsaber": 2,
+}
+FILLER = tuple(FILLER_TABLE)
+FILLER_WEIGHTS = tuple(FILLER_TABLE.values())
 
 ITEM_NAME_TO_ID = {name: ID_BASE + data.offset for name, data in ITEMS.items()}
 ITEM_NAME_GROUPS = {

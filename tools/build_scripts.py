@@ -155,6 +155,13 @@ def check_xp_table(layers: Layers) -> None:
                              f"{1000 * level}: ap_tick's XS delivery would be off (nss/ap_tick.nss)")
 
 
+def check_gear(layers: Layers, protocol) -> None:
+    """Every template a gear or lightsaber delivery can create exists in this game (protocol.gear_resrefs)."""
+    missing = sorted(r for r in protocol.gear_resrefs() if layers.resource(r, ResourceType.UTI) is None)
+    if missing:
+        raise SystemExit(f"gear templates missing from this game: {', '.join(missing)} (worlds/kotor2/protocol.py)")
+
+
 def check_argument_order() -> None:
     """SetGlobalNumber("X", 7) must push 7 before "X", like the game's own scripts (_fix_engine_call_order)."""
     NssLexer()
@@ -249,6 +256,7 @@ def main() -> None:
 
     check_argument_order()
     check_xp_table(layers)
+    check_gear(layers, protocol)
     (NSS / "ap_generated.nss").write_text(generate(protocol, profile), encoding="utf-8")
     for name in ("ap_tick", "ap_gm_lock", "ap_masters"):
         (out / f"{name}.ncs").write_bytes(compile_script(name))

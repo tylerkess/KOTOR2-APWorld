@@ -20,6 +20,7 @@ Commands the client sends (ap_tick takes up to COMMANDS_PER_TICK per run, never 
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 
 from .tables import MODULES, QUESTS
 
@@ -86,7 +87,7 @@ def visit_global(module: str) -> str:
 
 # Delivery ops ap_tick understands (client.delivery_op). Part of table_hash: an ap_tick without an op would stall the
 # item queue on it (unknown ops are never consumed), so a client with new ops asks for a reinstall instead.
-DELIVERY_OPS = ("N", "G", "X", "C", "M", "P", "GS", "XS")
+DELIVERY_OPS = ("N", "G", "X", "C", "M", "P", "GS", "XS", "R2")  # R2: gear with a jackpot chance
 
 
 def table_hash() -> str:
@@ -122,3 +123,50 @@ class Snapshot:
         states = parts[10].split(",")
         self.quests = {tag: int(state) for tag, state in zip(QUEST_ORDER, states) if state.lstrip("-").isdigit()}
         self.globals = {name: int(v) for name, v in zip(WATCHED_GLOBALS, parts[11].split(",")) if v.lstrip("-").isdigit()}
+
+
+# ------------------------------------------------------------------------------------------------------ gear filler
+# The game's own random loot (k_plc_it_* scripts) creates <prefix><NN>: NN 01..size, rising in value, picked from the
+# player's level. A gear item names a group; the client picks a family in it, ap_tick picks NN from the earned level
+# at delivery (op "R2 <prefix> <size> <skip> <rare %> <jackpot %>", nss/ap_tick.nss AP_GiveGear).
+@dataclass(frozen=True)
+class GearFamily:
+    prefix: str
+    size: int
+    weight: int = 2  # within its group
+    skip: int = 0  # a number the game lacks (a_gloves_03), replaced by its neighbour
+
+
+GEAR_GROUPS: dict[str, tuple[GearFamily, ...]] = {
+    "Weapon": (GearFamily("w_blaste_", 30), GearFamily("w_brifle_", 30), GearFamily("w_melee_", 30)),
+    "Armor": (GearFamily("a_light_", 15), GearFamily("a_medium_", 15), GearFamily("a_heavy_", 15),
+              GearFamily("a_robe_", 30)),
+    "Equipment": (GearFamily("a_belt_", 30), GearFamily("a_gloves_", 30, skip=3), GearFamily("a_helmet_", 30),
+                  GearFamily("e_imp1_", 10, 1), GearFamily("e_imp2_", 10, 1), GearFamily("e_imp3_", 10, 1),
+                  GearFamily("e_imp4_", 10, 1), GearFamily("a_shield_", 7, 1)),
+    "Upgrade": (GearFamily("u_a_over_", 30), GearFamily("u_a_unde_", 30), GearFamily("u_m_cell_", 15),
+                GearFamily("u_m_edge_", 15), GearFamily("u_m_grip_", 15), GearFamily("u_r_firi_", 15),
+                GearFamily("u_r_powe_", 15), GearFamily("u_r_targ_", 15)),
+    "Lightsaber Part": (GearFamily("u_l_crys_", 25, 3), GearFamily("u_l_cell_", 13), GearFamily("u_l_emit_", 13),
+                        GearFamily("u_l_lens_", 13)),
+    "Droid Gear": (GearFamily("d_armor_", 15), GearFamily("d_device_", 15), GearFamily("d_interface_", 15),
+                   GearFamily("d_tool_", 15), GearFamily("d_shield_", 6, 1)),
+}
+GEAR_RARE_PERCENT = 9  # chance a gear item rolls 0..+12 above the level instead of the game's window
+GEAR_JACKPOT_PERCENT = 1  # chance it lands anywhere from level +3 up to tier 30
+
+# Lightsabers: the number is only the blade colour (no 06). Uniques replace one now and then.
+LIGHTSABER_COLOURS = ("01", "02", "03", "04", "05", "07", "08", "09", "10", "11")
+LIGHTSABER_FORMS = ("g_w_lghtsbr{}", "g_w_shortsbr{}", "g_w_dblsbr0{}")
+LIGHTSABER_UNIQUES = ("g1_w_lghtsbr01", "g1_w_lghtsbr02", "g1_w_shortsbr01", "g1_w_shortsbr02", "g1_w_dblsbr001",
+                      "g1_w_dblsbr002", "w_sls_x02", "w_ls_x01", "g_w_drkjdisbr001", "g_w_drkjdisbr002")
+LIGHTSABER_UNIQUE_PERCENT = 10
+
+
+def gear_resrefs() -> set[str]:
+    """Every template a gear or lightsaber delivery can create."""
+    out = {f"{f.prefix}{n:02d}" for families in GEAR_GROUPS.values() for f in families
+           for n in range(1, f.size + 1) if n != f.skip}
+    out |= {form.format(colour) for form in LIGHTSABER_FORMS for colour in LIGHTSABER_COLOURS}
+    return out | set(LIGHTSABER_UNIQUES)
+

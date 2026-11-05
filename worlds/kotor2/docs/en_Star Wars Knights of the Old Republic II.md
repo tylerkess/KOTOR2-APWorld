@@ -20,5 +20,12 @@ quest, and the endgame never lets you go back.
 
 ## Items
 
-Planet coordinates (progression), lightsaber crystals, and filler: credits, experience, medpacs, stimulants,
-components, chemicals, computer and security spikes. Received items show as floating text over your character.
+Planet coordinates and Jedi Masters (progression), and filler that follows your level when it arrives:
+- **Gear** (Weapon, Armor, Equipment, Upgrade, Lightsaber Part, Droid Gear): picked from the game's own loot tables,
+  in the range the game would drop at your level, sometimes a few tiers better.
+- **Lightsaber**: a random single, short or double-bladed saber in a random colour, sometimes a unique one.
+- **Credits** (150 per level) and **Experience** (a quarter of what your level needs), counted from the level your
+  experience has earned, levelled up or not.
+- Medpacs, stimulants, components, chemicals, computer and security spikes.
+
+Received items show as floating text over your character.

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from BaseClasses import Item, LocationProgressType
+from BaseClasses import Item, ItemClassification, LocationProgressType
 
 from . import data
 from .protocol import MASTERS
@@ -31,6 +31,11 @@ def create_items(world: KotOR2World) -> None:
         raise RuntimeError(f"{data.GAME_NAME}: {len(pool)} items for {len(unfilled)} locations")
     # Useful items avoid excluded locations, which are reserved for filler.
     room = sum(1 for loc in unfilled if loc.progress_type != LocationProgressType.EXCLUDED) - len(pool)
-    pool += [create_item(world, "Lightsaber Crystal") for _ in range(max(0, min(world.options.crystal_count.value, room)))]
-    pool += [create_item(world, world.get_filler_item_name()) for _ in range(len(unfilled) - len(pool))]
+    for _ in range(len(unfilled) - len(pool)):
+        name = world.get_filler_item_name()
+        while data.ITEMS[name].classification & ItemClassification.useful and room <= 0:
+            name = world.get_filler_item_name()
+        if data.ITEMS[name].classification & ItemClassification.useful:
+            room -= 1
+        pool.append(create_item(world, name))
     world.multiworld.itempool += pool

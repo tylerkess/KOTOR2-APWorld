@@ -13,7 +13,8 @@ Wanted:
    Later, catch-up XP (owner, 2026-11-05): items unlock the endgame, so a seed can reach Malachor badly under-levelled.
    Give more XP while the player is below the level their progress implies (share of checks done, or masters found),
    the normal quarter otherwise. Needs reference levels per planet from a normal run.
-2. **Better items more likely later.** Gauge rarity from the game files. Candidates to check:
+2. **Better items more likely later.** Done 2026-11-05 (docs/DECISIONS.md D20). Original notes:
+   Gauge rarity from the game files. Candidates to check:
    - the `Cost` field of each item template (.uti): crystals range 230-3980, for example;
    - `itemcreate.2da` (workbench/lab recipes): may carry level or skill requirements;
    - the game's own random-loot scripts (container treasure) and the `000_RareItemChance` global seen in the 650DAN

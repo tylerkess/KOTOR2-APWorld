@@ -65,8 +65,18 @@ def delivery_op(item_id: int, index: int, seed_name: str) -> str:
         return f"P {protocol.PLANET_BITS[name][0]}"
     if name in protocol.MASTER_BY_ITEM:
         return f"M {protocol.MASTER_BY_ITEM[name].bit}"
-    if name == "Lightsaber Crystal":  # the same crystal for the same item on every client run
-        return f"C {random.Random(f'{seed_name}:{index}').choice(CRYSTALS)} 1"
+    rng = random.Random(f"{seed_name}:{index}")  # the same choice for the same item on every client run
+    if name in protocol.GEAR_GROUPS:
+        families = protocol.GEAR_GROUPS[name]
+        family = rng.choices(families, weights=[f.weight for f in families])[0]
+        return (f"R2 {family.prefix} {family.size} {family.skip} {protocol.GEAR_RARE_PERCENT} "
+                f"{protocol.GEAR_JACKPOT_PERCENT}")
+    if name == "Lightsaber":
+        if rng.randrange(100) < protocol.LIGHTSABER_UNIQUE_PERCENT:
+            return f"C {rng.choice(protocol.LIGHTSABER_UNIQUES)} 1"
+        return f"C {rng.choice(protocol.LIGHTSABER_FORMS).format(rng.choice(protocol.LIGHTSABER_COLOURS))} 1"
+    if name == "Lightsaber Crystal":  # retired item, seeds made before 2026-11-05
+        return f"C {rng.choice(CRYSTALS)} 1"
     return DELIVERY.get(name, "N")
 
 

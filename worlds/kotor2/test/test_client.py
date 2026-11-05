@@ -84,6 +84,31 @@ class TestProtocol(KotOR2TestBase):
         self.assertEqual(delivery_op(crystal, 4, "seed"), delivery_op(crystal, 4, "seed"))
         self.assertTrue(delivery_op(crystal, 4, "seed").startswith("C u_l_crys_"))
 
+    def test_gear_and_lightsabers(self) -> None:
+        for group, families in protocol.GEAR_GROUPS.items():
+            item_id = ITEM_NAME_TO_ID[group]
+            ops = {delivery_op(item_id, i, "seed") for i in range(200)}
+            self.assertEqual(delivery_op(item_id, 7, "seed"), delivery_op(item_id, 7, "seed"))  # stable per item
+            prefixes = {op.split(" ")[1] for op in ops}
+            self.assertEqual(prefixes, {f.prefix for f in families}, group)  # every family turns up
+            for op in ops:
+                kind, prefix, size, skip, rare, jackpot = op.split(" ")
+                family = next(f for f in families if f.prefix == prefix)
+                self.assertEqual((kind, int(size), int(skip), int(rare), int(jackpot)),
+                                 ("R2", family.size, family.skip, protocol.GEAR_RARE_PERCENT,
+                                  protocol.GEAR_JACKPOT_PERCENT))
+        sabers = {delivery_op(ITEM_NAME_TO_ID["Lightsaber"], i, "seed") for i in range(500)}
+        resrefs = {op.split(" ")[1] for op in sabers}
+        self.assertLessEqual(resrefs, protocol.gear_resrefs())
+        self.assertTrue(resrefs & set(protocol.LIGHTSABER_UNIQUES))
+        self.assertTrue(resrefs - set(protocol.LIGHTSABER_UNIQUES))
+
+    def test_filler_table(self) -> None:
+        from ..data import FILLER_TABLE, ITEMS
+        self.assertEqual(sum(FILLER_TABLE.values()), 100)
+        self.assertLessEqual(set(FILLER_TABLE), set(ITEMS))
+        self.assertNotIn("Lightsaber Crystal", FILLER_TABLE)  # retired
+
     def test_delivery_commands_start_at_the_save_index(self) -> None:
         items = [ITEM_NAME_TO_ID["Credits"]] * 30
         commands = delivery_commands(3, items, "s")

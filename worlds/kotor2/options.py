@@ -85,15 +85,6 @@ class UnmetMasters(Choice):
     default = 0
 
 
-class CrystalCount(Range):
-    """How many Lightsaber Crystal items go into the pool (each one is a random crystal), if there is room."""
-
-    display_name = "Lightsaber Crystals"
-    range_start = 0
-    range_end = 10
-    default = 4
-
-
 @dataclass
 class KotOR2Options(PerGameCommonOptions):
     content: Content
@@ -103,12 +94,10 @@ class KotOR2Options(PerGameCommonOptions):
     unmet_masters: UnmetMasters
     questsanity: Questsanity
     side_areas: SideAreas
-    crystal_count: CrystalCount
 
 
 option_groups = [
     OptionGroup("Game", [Content, M478Access]),
     OptionGroup("Jedi Masters", [JediMasters, MastersRequired, UnmetMasters]),
     OptionGroup("Checks", [Questsanity, SideAreas]),
-    OptionGroup("Items", [CrystalCount]),
 ]

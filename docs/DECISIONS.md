@@ -77,3 +77,13 @@
   with Nar Shaddaa Coordinates there. Every path continues in 101PER, so the client counts the prologue as done once
   101PER is visited (data.PROLOGUE_END_MODULE). Client-only: a save that already skipped it gets the checks on its next
   connection.
+- **D20 (2026-11-05)** Filler rework, part 1 (owner): Credits and Experience scale with the level the player's XP has
+  earned (150 credits per level; 25% of the level's 1000 x L span), read in ap_tick at delivery. Gear comes from the
+  game's own numbered loot families (k_plc_it_*: <prefix>01..NN, rising in value), in six groups; ap_tick picks the
+  number like the game does (earned level -5..+2, clamped 1..30, scaled to the family's length), with a 9% rare roll
+  0..+12 above the level and a 1% jackpot anywhere from level +3 to tier 30 (owner: jackpots possible, just rare).
+  Lightsaber: a random form and colour, 10% a unique (g1 prebuilt sabers, Freedon Nadd's, Visas Marr's, Dark Jedi).
+  Droid gear in, at a low weight. The Lightsaber Crystal item and option are retired (crystals are Lightsaber Parts);
+  the item ID stays so older seeds deliver it. Filler: 40% gear, 15% credits, 15% experience, 30% consumables
+  (data.FILLER_TABLE).
+
