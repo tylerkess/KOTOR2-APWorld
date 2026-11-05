@@ -12,8 +12,12 @@ void AP_Deliver(string sArgs, object oPC) {
     string sRest = AP_Rest(sOp);
     if (sKind == "G") {
         GiveGoldToCreature(oPC, StringToInt(sRest));
+    } else if (sKind == "GS") {  // credits per level
+        GiveGoldToCreature(oPC, StringToInt(sRest) * AP_Level(oPC));
     } else if (sKind == "X") {
         GiveXPToCreature(oPC, StringToInt(sRest));
+    } else if (sKind == "XS") {  // percent of the earned level's span: 1000 x level XP (AP_Level)
+        GiveXPToCreature(oPC, StringToInt(sRest) * 10 * AP_Level(oPC));
     } else if (sKind == "C") {
         // Not retried on an invalid result: an item that merges into a stack the player already has comes back
         // invalid although it was given (seen in game 2026-11-05: Chemicals delivered every 5 s).

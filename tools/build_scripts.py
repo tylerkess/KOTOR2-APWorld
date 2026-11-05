@@ -145,6 +145,16 @@ def compile_script(name: str) -> bytes:
     return bytes(bytes_ncs(ncs))
 
 
+def check_xp_table(layers: Layers) -> None:
+    """ap_tick's XS op assumes the d20 curve: level L to L+1 takes 1000 x L XP (exptable.2da)."""
+    table = twoda.read(layers.resource("exptable", ResourceType.TwoDA))
+    xp = table.column("xp")
+    for level in range(1, 50):
+        if int(xp[level]) - int(xp[level - 1]) != 1000 * level:
+            raise SystemExit(f"exptable.2da: level {level} needs {int(xp[level]) - int(xp[level - 1])} XP, not "
+                             f"{1000 * level}: ap_tick's XS delivery would be off (nss/ap_tick.nss)")
+
+
 def check_argument_order() -> None:
     """SetGlobalNumber("X", 7) must push 7 before "X", like the game's own scripts (_fix_engine_call_order)."""
     NssLexer()
@@ -238,6 +248,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     check_argument_order()
+    check_xp_table(layers)
     (NSS / "ap_generated.nss").write_text(generate(protocol, profile), encoding="utf-8")
     for name in ("ap_tick", "ap_gm_lock", "ap_masters"):
         (out / f"{name}.ncs").write_bytes(compile_script(name))

@@ -10,6 +10,18 @@ void AP_SetReceived(int nIndex) {
     SetGlobalNumber("AP_RECV_HI", nIndex / 100);
 }
 
+// The level the player's XP has earned, level-ups taken or not: level L+1 starts at 500 x L x (L+1) XP (the d20
+// curve in exptable.2da; tools/build_scripts.py checks it). Read fresh for each delivery, so a queued XP item scales
+// with the levels the ones before it earned.
+int AP_Level(object oPC) {
+    int nXP = GetXP(oPC);
+    int n = 1;
+    while (n < 50 && nXP >= 500 * n * (n + 1)) {
+        n = n + 1;
+    }
+    return n;
+}
+
 int AP_HasPlanetBit(int nBit) {
     return (GetGlobalNumber("AP_PLANETS") & (1 << nBit)) != 0;
 }

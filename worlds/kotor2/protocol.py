@@ -84,8 +84,13 @@ def visit_global(module: str) -> str:
     return f"AP_V_{module.upper()}"
 
 
+# Delivery ops ap_tick understands (client.delivery_op). Part of table_hash: an ap_tick without an op would stall the
+# item queue on it (unknown ops are never consumed), so a client with new ops asks for a reinstall instead.
+DELIVERY_OPS = ("N", "G", "X", "C", "M", "P", "GS", "XS")
+
+
 def table_hash() -> str:
-    text = ",".join(VISIT_ORDER) + "|" + ",".join(QUEST_ORDER) + "|" + repr(sorted(PLANET_BITS.items())) + "|" + \
+    text = ",".join(DELIVERY_OPS) + "|" + ",".join(VISIT_ORDER) + "|" + ",".join(QUEST_ORDER) + "|" + repr(sorted(PLANET_BITS.items())) + "|" + \
         ",".join(WATCHED_GLOBALS) + "|" + repr([vars(m) for m in MASTERS])
     return hashlib.sha1(text.encode()).hexdigest()[:8]
 

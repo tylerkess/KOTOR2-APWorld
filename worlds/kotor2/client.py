@@ -35,9 +35,13 @@ BIND_ATTEMPTS = 20  # polls (10 s) an unbound save may stay unbound after B befo
 CONTENT_NAMES = {0: "vanilla", 1: "tslrcm", 2: "tslrcm_m478"}  # options.Content values
 ITEM_ID_TO_NAME = {item_id: name for name, item_id in ITEM_NAME_TO_ID.items()}
 CRYSTALS = ("u_l_crys_01", "u_l_crys_02", "u_l_crys_03", "u_l_crys_04", "u_l_crys_05", "u_l_crys_06", "u_l_crys_07")
+# Filler that scales with the player's level when it arrives (ap_tick AP_Deliver): the level their XP has earned,
+# whether or not they have levelled up yet.
+CREDITS_PER_LEVEL = 150  # 150 on Peragus, ~1000 on Telos, 3000 at level 20
+XP_PERCENT_OF_LEVEL = 25  # a quarter of what the current level needs to reach the next (1000 x level XP)
 DELIVERY: dict[str, str] = {
-    "Credits": "G 750",
-    "Experience": "X 500",
+    "Credits": f"GS {CREDITS_PER_LEVEL}",
+    "Experience": f"XS {XP_PERCENT_OF_LEVEL}",
     "Medpacs": "C g_i_medeqpmnt01 3",
     "Stimulants": "C g_i_adrnaline003 2",
     "Components": "C compont_00001 25",

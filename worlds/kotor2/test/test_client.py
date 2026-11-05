@@ -75,7 +75,10 @@ class TestProtocol(KotOR2TestBase):
 
     def test_delivery_ops(self) -> None:
         self.assertEqual(delivery_op(ITEM_NAME_TO_ID["Dantooine Coordinates"], 0, "s"), "P 2")
-        self.assertEqual(delivery_op(ITEM_NAME_TO_ID["Credits"], 0, "s"), "G 750")
+        self.assertEqual(delivery_op(ITEM_NAME_TO_ID["Credits"], 0, "s"), "GS 150")
+        self.assertEqual(delivery_op(ITEM_NAME_TO_ID["Experience"], 0, "s"), "XS 25")
+        for name, item_id in ITEM_NAME_TO_ID.items():  # ap_tick knows every op (protocol.DELIVERY_OPS)
+            self.assertIn(delivery_op(item_id, 0, "s").split(" ")[0], protocol.DELIVERY_OPS, name)
         self.assertEqual(delivery_op(123, 0, "s"), "N")
         crystal = ITEM_NAME_TO_ID["Lightsaber Crystal"]
         self.assertEqual(delivery_op(crystal, 4, "seed"), delivery_op(crystal, 4, "seed"))
