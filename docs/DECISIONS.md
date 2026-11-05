@@ -62,3 +62,18 @@
   appworkshop_208580.acf, since unsubscribing leaves files behind, plus the game folder): 801DRO means tslrcm_m478,
   298TEL means tslrcm. It is compiled into ap_tick (AP_CONTENT) and reported in every snapshot; the client refuses a
   seed whose content differs. research/tslrcm_m478 is the earlier extraction (the item is no longer installed here).
+- **D18 (2026-11-05)** First in-game run. (1) A Workshop item's `override/` beats the game's own (answers D3's open
+  question): with TSLRCM from the Workshop, our globals were declared only in the game's override/globalcat.2da and the
+  save dropped them. The installer now also writes our merged globalcat.2da (the effective table plus our rows) into
+  every installed Workshop item that ships one, backed up and recorded in the receipt; `--uninstall` restores it.
+  Steam may restore the mod's copy on an update; the client then reports that the globals are not kept, and
+  reinstalling fixes it. Other override files are unaffected (no Workshop item here ships a_galaxymap, the 650DAN
+  scripts or ours). (2) PyKotor 2.3.12 compiles engine-call arguments first to last; the game pops them last to
+  first, so every call with two or more arguments aborted ap_tick. tools/build_scripts.py reverses that loop and
+  checks the order on every build. (3) Builds read the game as it was before our install (the receipt), so patches no
+  longer stack on each reinstall.
+- **D19 (2026-11-05)** The prologue can be skipped from the new-game screen, which left its checks (the 001EBO visit
+  and four tutorial quests, "Save the Ebon Hawk" a story check that can hold progression) unreachable; seen in game
+  with Nar Shaddaa Coordinates there. Every path continues in 101PER, so the client counts the prologue as done once
+  101PER is visited (data.PROLOGUE_END_MODULE). Client-only: a save that already skipped it gets the checks on its next
+  connection.

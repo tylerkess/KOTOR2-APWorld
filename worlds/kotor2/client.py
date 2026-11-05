@@ -19,10 +19,11 @@ from CommonClient import ClientCommandProcessor, CommonContext, get_base_parser,
 from NetUtils import ClientStatus
 
 from . import protocol
-from .data import ITEM_NAME_TO_ID, LOCATIONS, VISIT_ALIASES
+from .data import (ITEM_NAME_TO_ID, LOCATIONS, PROLOGUE_END_MODULE, PROLOGUE_QUESTS, PROLOGUE_VISITS,
+                   VISIT_ALIASES)
 from .world import KotOR2World
 
-logger = logging.getLogger("KotOR2Client")
+logger = logging.getLogger("Client")  # the GUI shows the "Client" logger only (kvui logging_pairs)
 
 PIPE_NAME = r"\\.\pipe\K2APBridge"
 READ_BYTES = 8192
@@ -69,10 +70,13 @@ def checked_locations(snapshot: protocol.Snapshot, missing: Iterable[int]) -> se
     """Location IDs among `missing` that the snapshot shows as done."""
     wanted = set(missing)
     done: set[int] = set()
+    past_prologue = PROLOGUE_END_MODULE in snapshot.visited
     for loc in LOCATIONS.values():
         if loc.location_id not in wanted:
             continue
-        if loc.kind == "visit" and ({loc.module, *VISIT_ALIASES.get(loc.module, ())} & snapshot.visited):
+        if past_prologue and (loc.module in PROLOGUE_VISITS or loc.quest in PROLOGUE_QUESTS):
+            done.add(loc.location_id)  # played or skipped (data.PROLOGUE_END_MODULE)
+        elif loc.kind == "visit" and ({loc.module, *VISIT_ALIASES.get(loc.module, ())} & snapshot.visited):
             done.add(loc.location_id)
         elif loc.kind == "quest" and snapshot.quests.get(loc.quest, 0) in loc.ends:
             done.add(loc.location_id)
@@ -179,6 +183,12 @@ class KotOR2Context(CommonContext):
                     name = self.item_names.lookup_in_slot(item.item)
                     self._notices.append(f"Received {name} from {self.player_names.get(item.player, '?')}")
 
+    @property
+    def room_seed(self) -> str | None:
+        """The seed the server is running. Archipelago 0.6.8 reports it as server_seed_name; seed_name stays None
+        unless a patch file set it."""
+        return getattr(self, "server_seed_name", None) or self.seed_name
+
     # ----------------------------------------------------------------------------------------------- game side
     def _state(self, text: str, level: int = logging.INFO) -> None:
         if text != self._last_state:
@@ -219,10 +229,11 @@ class KotOR2Context(CommonContext):
                         f"{snapshot.content}: fix the YAML's content option or reinstall for the right setup",
                         logging.ERROR)
             return set(), False
-        if self.slot is None or self.seed_name is None:
+        seed = self.room_seed
+        if self.slot is None or seed is None:
             self._state("Bridge connected; waiting for the Archipelago server")
             return set(), False
-        ours = protocol.identity(self.seed_name, self.slot)
+        ours = protocol.identity(seed, self.slot)
         if snapshot.identity == (0, 0, 0):
             if snapshot.received != 0:
                 self._state("This save has items from an unbound session; start a new game", logging.ERROR)
@@ -255,7 +266,7 @@ class KotOR2Context(CommonContext):
         if snapshot.received < len(items):
             if self._sent_from != snapshot.received or now - self._sent_at > RESEND_SECONDS:
                 self.bridge.request("CLEAR")
-                for command in delivery_commands(snapshot.received, items, self.seed_name):
+                for command in delivery_commands(snapshot.received, items, seed):
                     self.bridge.request(f"CMD {command}")
                 self._sent_from, self._sent_at = snapshot.received, now
         for notice in self._notices[:5]:
@@ -277,6 +288,10 @@ class KotOR2Context(CommonContext):
                         logger.info("Goal complete!")
                 except BridgeError as error:
                     self._state(f"Waiting for KOTOR 2 with K2APBridge ({error})")
+                except Exception as error:  # a bug here must not end the loop silently
+                    if self._last_state != f"error: {error!r}":
+                        logger.exception(f"KOTOR 2 bridge loop: {error!r}")
+                        self._last_state = f"error: {error!r}"
                 await asyncio.sleep(POLL_SECONDS)
         finally:
             self.bridge.close()

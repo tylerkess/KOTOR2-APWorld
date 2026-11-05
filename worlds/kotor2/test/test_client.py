@@ -3,7 +3,7 @@ import unittest
 from .. import protocol
 from ..client import (Bridge, KotOR2Context, checked_locations, delivery_commands, delivery_op, vash_counted_twice,
                       wanted_options)
-from ..data import ITEM_NAME_TO_ID, LOCATIONS
+from ..data import ITEM_NAME_TO_ID, LOCATIONS, PROLOGUE_QUESTS, PROLOGUE_VISITS
 from . import KotOR2TestBase
 
 
@@ -41,6 +41,14 @@ class TestProtocol(KotOR2TestBase):
         academy = next(loc for loc in LOCATIONS.values() if loc.module == "702kor")
         snap = protocol.Snapshot(snapshot_line(visited={"703kor"}))
         self.assertEqual(checked_locations(snap, {academy.location_id}), {academy.location_id})
+
+    def test_skipped_prologue_counts_once_on_peragus(self) -> None:
+        prologue = {loc.location_id for loc in LOCATIONS.values()
+                    if loc.module in PROLOGUE_VISITS or loc.quest in PROLOGUE_QUESTS}
+        self.assertEqual(len(prologue), 1 + len(PROLOGUE_QUESTS))  # every tag still exists
+        self.assertEqual(checked_locations(protocol.Snapshot(snapshot_line(module="001EBO")), prologue), set())
+        snap = protocol.Snapshot(snapshot_line(visited={"101per"}))
+        self.assertEqual(checked_locations(snap, prologue), prologue)
 
     def test_options_and_vash_warning(self) -> None:
         self.assertEqual(wanted_options({"content": 2, "m4_78_access": 0}), protocol.OPT_M478_BY_COORDINATES)
@@ -120,8 +128,15 @@ class TestPoll(unittest.IsolatedAsyncioTestCase):  # CommonContext needs a runni
     def make(self) -> tuple[KotOR2Context, FakeGame]:
         game = FakeGame()
         ctx = KotOR2Context(None, None, Bridge(opener=lambda *_: FakePipe(game)))
-        ctx.slot, ctx.seed_name = 1, "seed"
+        ctx.slot, ctx.server_seed_name = 1, "seed"  # Archipelago 0.6.8: RoomInfo sets server_seed_name only
         return ctx, game
+
+    async def test_seed_name_fallback(self) -> None:
+        """Older Archipelago versions set seed_name from RoomInfo instead."""
+        ctx, game = self.make()
+        ctx.server_seed_name, ctx.seed_name = None, "seed"
+        ctx._poll()
+        self.assertEqual(game.commands, ["B {} {} {}".format(*protocol.identity("seed", 1))])
 
     async def test_unbound_save_is_bound(self) -> None:
         ctx, game = self.make()

@@ -17,6 +17,7 @@ The bridge logs to `%LOCALAPPDATA%\K2APBridge\bridge.log`. `/bridge` in the clie
 
 ## Troubleshooting
 
-- *"The game does not keep Archipelago's globals"*: another `globalcat.2da` wins over ours. With TSLRCM from the
-  Workshop that is TSLRCM's own copy; tell the developers (this is the open question in docs/DESIGN.md).
+- *"The game does not keep Archipelago's globals"*: another `globalcat.2da` wins over ours. The installer replaces the
+  copy in TSLRCM's Workshop folder too, but Steam may put the original back when the mod updates: run the install
+  again.
 - *"from another version of this world"*: rerun the installer after updating the apworld.

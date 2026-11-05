@@ -85,6 +85,7 @@ std::deque<std::string> g_toClient;  // events from APB_Send other than snapshot
 std::string g_snapshot;              // latest "S ..." line from ap_tick
 volatile LONG g_ticks = 0;
 volatile LONG g_hooked = 0;
+volatile LONG g_calls[3] = {0, 0, 0};  // diagnostics: calls to routines 877-879
 ULONGLONG g_lastTick = 0;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -159,9 +160,7 @@ uint32_t PlayerObjectId() {
 
 // ---------------------------------------------------------------------------------------------------------------
 // routines 877-879
-int RunRoutine(int id) {
-    void* vm = VirtualMachine();
-    if (!vm) return engine::kErrCommandNotFound;
+int RunRoutineImpl(void* vm, int id) {
     switch (id) {
         case engine::kRoutineVersion:
             return PushInt(vm, kProtocol) ? 0 : engine::kErrPush;
@@ -180,7 +179,10 @@ int RunRoutine(int id) {
             std::string event;
             if (!PopString(vm, &event)) return engine::kErrParam;
             Guard lock(g_lock);
-            if (event.size() > 1 && event[0] == 'S' && event[1] == ' ') {
+            if (event.size() > 1 && event[0] == 'D' && event[1] == ' ') {
+                static int logged = 0;
+                if (logged++ < 10) Log("debug: %.200s", event.c_str());  // diagnostics
+            } else if (event.size() > 1 && event[0] == 'S' && event[1] == ' ') {
                 g_snapshot = event;
             } else if (!event.empty()) {
                 if (g_toClient.size() >= kMaxQueue) g_toClient.pop_front();
@@ -191,6 +193,18 @@ int RunRoutine(int id) {
         default:
             return engine::kErrCommandNotFound;
     }
+}
+
+int RunRoutine(int id) {
+    void* vm = VirtualMachine();
+    if (!vm) {
+        Log("routine %d: no VM", id);
+        return engine::kErrCommandNotFound;
+    }
+    const LONG n = InterlockedIncrement(&g_calls[id - engine::kVanillaRoutineCount]);
+    const int result = RunRoutineImpl(vm, id);
+    if (n <= 5) Log("routine %d call %ld -> %d", id, n, result);  // diagnostics
+    return result;
 }
 
 int __fastcall HookExecuteCommand(void* self, void* edx, int id, int nParams) {
@@ -214,9 +228,17 @@ void RunTick() {
     if (player == engine::kObjectInvalid || player == 0) return;
     char name[] = "ap_tick";
     engine::ExoString exo{name, sizeof(name)};
-    reinterpret_cast<RunScriptFn>(engine::kRunScript)(vm, nullptr, &exo, player, 1);
+    const int ran = reinterpret_cast<RunScriptFn>(engine::kRunScript)(vm, nullptr, &exo, player, 1);
     const LONG n = InterlockedIncrement(&g_ticks);
-    if (n <= 3 || n % 600 == 0) Log("tick %ld (player 0x%08X)", n, player);
+    if (n <= 10 || n % 600 == 0) {
+        bool snap;
+        {
+            Guard lock(g_lock);
+            snap = !g_snapshot.empty();
+        }
+        Log("tick %ld (player 0x%08X, RunScript %d, calls %ld/%ld/%ld, snapshot %s)", n, player, ran, g_calls[0], g_calls[1],
+            g_calls[2], snap ? "yes" : "no");
+    }
 }
 
 int __fastcall HookPlayerControlUpdate(void* self, void* edx, float dt) {

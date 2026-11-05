@@ -31,8 +31,8 @@ You need KOTOR 2 (Steam/Aspyr) and Archipelago 0.6.8 or newer. Nothing to build 
 your character. In the client, `/bridge` shows the hooks, ticks and watched game globals. A new Peragus area sends a
 check; once you have the Ebon Hawk, planets without their coordinates are greyed out on the galaxy map.
 
-**If the client says the game "does not keep Archipelago's globals":** TSLRCM's Workshop `globalcat.2da` is winning
-over ours (the open question in [docs/DESIGN.md](docs/DESIGN.md)). Report it.
+**If the client says the game "does not keep Archipelago's globals":** TSLRCM's Workshop `globalcat.2da` is
+winning over ours. The installer replaces it, but Steam may restore it when the mod updates: install again.
 
 ## Testing from source
 

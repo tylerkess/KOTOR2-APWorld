@@ -35,6 +35,28 @@ from pykotor.resource.formats.ncs.ncs_data import NCS, NCSInstruction, NCSInstru
 from pykotor.resource.formats.ncs.optimizers import RemoveNopOptimizer  # noqa: E402
 from pykotor.resource.type import ResourceType  # noqa: E402
 
+
+def _fix_engine_call_order() -> None:
+    """PyKotor (2.3.x) pushes an engine call's arguments first to last, to suit its own interpreter. The game pops them
+    the other way: its compiler pushes the last argument first, so the first is on top (see SetPlanetAvailable in the
+    game's a_galaxymap.ncs). With PyKotor's order every call with two or more arguments aborts the script in game
+    (SetGlobalBoolean pops an int where it wants the name). Reverse that one loop; fail loudly if PyKotor changes it."""
+    import inspect
+    import textwrap
+    from pykotor.resource.formats.ncs.compiler import classes
+
+    source = textwrap.dedent(inspect.getsource(classes.EngineCallExpression.compile))
+    forward = "for i in range(len(self._args)):"
+    if source.count(forward) != 1:
+        raise SystemExit("build_scripts: PyKotor's EngineCallExpression.compile changed; recheck the argument order")
+    namespace: dict = {}
+    exec(compile(source.replace(forward, "for i in reversed(range(len(self._args))):"), classes.__file__, "exec"),
+         vars(classes), namespace)
+    classes.EngineCallExpression.compile = namespace["compile"]
+
+
+_fix_engine_call_order()
+
 NSS = ROOT / "nss"
 
 
@@ -123,6 +145,17 @@ def compile_script(name: str) -> bytes:
     return bytes(bytes_ncs(ncs))
 
 
+def check_argument_order() -> None:
+    """SetGlobalNumber("X", 7) must push 7 before "X", like the game's own scripts (_fix_engine_call_order)."""
+    NssLexer()
+    parser = NssParser(functions=FUNCTIONS, constants=TSL_CONSTANTS, library=TSL_LIBRARY, library_lookup=[str(NSS)])
+    ncs = NCS()
+    parser.parser.parse('void main() { SetGlobalNumber("X", 7); }', tracking=True).compile(ncs)
+    pushes = [ins.ins_type.name for ins in ncs.instructions if ins.ins_type.name in ("CONSTI", "CONSTS")]
+    if pushes != ["CONSTI", "CONSTS"]:
+        raise SystemExit(f"build_scripts: engine call arguments compile in the wrong order ({pushes})")
+
+
 SHOW_GALAXY_MAP = 739
 EXECUTE_SCRIPT = 8
 
@@ -204,6 +237,7 @@ def main() -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    check_argument_order()
     (NSS / "ap_generated.nss").write_text(generate(protocol, profile), encoding="utf-8")
     for name in ("ap_tick", "ap_gm_lock", "ap_masters"):
         (out / f"{name}.ncs").write_bytes(compile_script(name))

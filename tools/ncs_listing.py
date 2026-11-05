@@ -13,6 +13,9 @@ from pykotor.common.scriptdefs import TSL_FUNCTIONS  # noqa: E402
 from pykotor.resource.formats.ncs import read_ncs  # noqa: E402
 
 
+BRIDGE = {877: "APB_Version", 878: "APB_Recv", 879: "APB_Send"}
+
+
 def main(path: str) -> None:
     ncs = read_ncs(open(path, "rb").read())
     index = {id(ins): i for i, ins in enumerate(ncs.instructions)}
@@ -20,7 +23,8 @@ def main(path: str) -> None:
         name = ins.ins_type.name
         args = list(ins.args)
         if name.startswith("ACTION"):
-            args = [f"{TSL_FUNCTIONS[args[0]].name}({args[0]})", f"argc={args[1]}"]
+            fn = TSL_FUNCTIONS[args[0]].name if args[0] < len(TSL_FUNCTIONS) else BRIDGE.get(args[0], "?")
+            args = [f"{fn}({args[0]})", f"argc={args[1]}"]
         jump = f" -> {index.get(id(ins.jump))}" if ins.jump is not None else ""
         print(f"{i:5} {name:12} {' '.join(map(str, args))}{jump}")
 

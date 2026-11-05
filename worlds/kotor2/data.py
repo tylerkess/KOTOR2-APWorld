@@ -158,6 +158,11 @@ VISITS: dict[str, tuple[Region, str]] = {
 
 # A visit also counts in these modules (TSLRCM's Korriban valley leads to 702KOR or 703KOR, both "Sith Academy").
 VISIT_ALIASES: dict[str, tuple[str, ...]] = {"702kor": ("703kor",)}
+# The prologue (001EBO, T3-M4 on the Ebon Hawk) can be skipped from the new-game screen; either way the game continues
+# in 101PER. So 101PER counts as finishing the prologue: its visit and its quests are sent then (docs/DECISIONS.md D19).
+PROLOGUE_END_MODULE = "101per"
+PROLOGUE_VISITS = frozenset({"001ebo"})
+PROLOGUE_QUESTS = frozenset({"tutorial_garage", "tutorial_heal_pc", "tutorial_3CFD", "tutorial_fix_ebo"})
 
 # Quests: completed (any end entry, so every choice sends it). "story": on the critical path. Quests not listed are
 # not checks (no end entry, or not tied to one place: PcForce, ForceChain, JediRelics, pazaak rules, ...).

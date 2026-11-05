@@ -15,8 +15,9 @@ void AP_Deliver(string sArgs, object oPC) {
     } else if (sKind == "X") {
         GiveXPToCreature(oPC, StringToInt(sRest));
     } else if (sKind == "C") {
-        object oItem = CreateItemOnObject(AP_Head(sRest), oPC, StringToInt(AP_Rest(sRest)));
-        if (!GetIsObjectValid(oItem)) return;  // unknown template or no room: keep the index, retry next tick
+        // Not retried on an invalid result: an item that merges into a stack the player already has comes back
+        // invalid although it was given (seen in game 2026-11-05: Chemicals delivered every 5 s).
+        CreateItemOnObject(AP_Head(sRest), oPC, StringToInt(AP_Rest(sRest)));
     } else if (sKind == "M") {
         SetGlobalNumber("AP_MITEMS", GetGlobalNumber("AP_MITEMS") | (1 << StringToInt(sRest)));
     } else if (sKind == "P") {

@@ -15,11 +15,13 @@ from pathlib import Path
 
 logging.disable(logging.CRITICAL)  # PyKotor logs every case-insensitive lookup
 
-from pykotor.extract.installation import Installation
+from pykotor.extract.installation import Installation, SearchLocation
 from pykotor.resource.formats.erf import read_erf
 from pykotor.resource.formats.rim import read_rim
 from pykotor.resource.type import ResourceType
 
+import json
+import os
 import re
 
 TSLRCM_WORKSHOP_ID = "485537937"  # "The Sith Lords Restored Content Mod" (TSLRCM)
@@ -27,6 +29,8 @@ TSLRCM_M478_WORKSHOP_ID = "1402798020"  # "TSLRCM + M4-78EP" (one Workshop item 
 WORKSHOP_PROFILES = {"vanilla": (), "tslrcm": (TSLRCM_WORKSHOP_ID,), "tslrcm_m478": (TSLRCM_M478_WORKSHOP_ID,)}
 PROFILES = ("vanilla", "tslrcm", "tslrcm_m478")
 # Modules that tell the setups apart (whatever installed them: Workshop or a manual install into Modules/).
+RECEIPT = "k2ap_receipt.json"  # tools/install.py
+BACKUP = "k2ap_backup"
 M478_MODULE = "801dro"  # M4-78EP
 TSLRCM_MODULE = "298tel"  # TSLRCM's restored HK factory (also in TSLRCM + M4-78EP)
 
@@ -55,6 +59,37 @@ def _ci_dir(parent: Path, name: str) -> Path | None:
     return _ci_children(parent).get(name.lower())
 
 
+def backup_path(game_folder: Path, rel: str) -> Path:
+    """Where tools/install.py keeps the original of a file it replaced. `rel` is relative to the game folder; Workshop
+    files start with ../../workshop/, which must not climb out of the backup folder."""
+    parts = [("up" if part == ".." else part) for part in rel.replace("\\", "/").split("/")]
+    return game_folder / BACKUP / Path(*parts)
+
+
+def _same_folder(a: Path, b: Path) -> bool:
+    return os.path.normcase(os.path.normpath(a)) == os.path.normcase(os.path.normpath(b))
+
+
+def _without_our_install(game_folder: Path, folder: Path, files: dict[str, Path]) -> dict[str, Path]:
+    """An override folder as it was before tools/install.py: files it added are left out, files it replaced come
+    from its backup. Otherwise every build would read (and patch again) its own previous output."""
+    receipt_path = game_folder / RECEIPT
+    if not receipt_path.is_file():
+        return files
+    receipt = json.loads(receipt_path.read_text())
+    files = dict(files)
+    for kind in ("added", "replaced"):
+        for rel in receipt.get(kind, []):
+            path = game_folder / rel.replace("\\", "/")
+            if not _same_folder(path.parent, folder):
+                continue
+            if kind == "added":
+                files.pop(path.name.lower(), None)
+            else:
+                files[path.name.lower()] = backup_path(game_folder, rel)
+    return files
+
+
 @dataclass
 class Layers:
     game_folder: Path
@@ -72,11 +107,11 @@ class Layers:
             if not base.is_dir():
                 raise FileNotFoundError(f"Workshop item {item} not installed ({base})")
             if (d := _ci_dir(base, "override")) is not None:
-                self._override_dirs.append(_ci_children(d))
+                self._override_dirs.append(_without_our_install(self.game_folder, d, _ci_children(d)))
             if (d := _ci_dir(base, "modules")) is not None:
                 self._module_dirs.append(_ci_children(d))
         if (d := _ci_dir(self.game_folder, "override")) is not None:
-            self._override_dirs.append(_ci_children(d))
+            self._override_dirs.append(_without_our_install(self.game_folder, d, _ci_children(d)))
 
     @property
     def profile(self) -> str:
@@ -104,7 +139,9 @@ class Layers:
         data = self.override(resref, restype)
         if data is not None:
             return data
-        found = self.inst.resource(resref, restype)
+        # Not SearchLocation.OVERRIDE: the override layers above already cover it, without our own installed files.
+        found = self.inst.resource(resref, restype, order=[SearchLocation.CUSTOM_FOLDERS, SearchLocation.CUSTOM_MODULES,
+                                                           SearchLocation.CHITIN])
         return None if found is None else found.data
 
     def module_names(self) -> list[str]:

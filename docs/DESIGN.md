@@ -96,7 +96,7 @@ Party members as items are a later option (story scenes force several of them in
 
 ## Open questions (in-game tests)
 
-- **Override vs Workshop priority**: does a file in the game's `override/` beat the same file in a Workshop item's
-  `override/`? Our `globalcat.2da` must win over TSLRCM's. (`docs/DECISIONS.md` D3.)
+- ~~Override vs Workshop priority~~: answered, the Workshop item's `override/` wins; the installer writes our
+  `globalcat.2da` there too (`docs/DECISIONS.md` D18).
 - Whether `RunScript` from our per-frame call is safe during conversations, cutscenes and loading; `ap_tick` itself
   skips work in conversations (`GetIsInConversation`) and while `GetFirstPC()` is invalid.
